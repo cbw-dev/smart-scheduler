@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Workshop Schedule Converter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .input-label { font-size: 0.875rem; font-weight: 500; color: #374151; }
+        .input-field {
+            display: block;
+            width: 100%;
+            border-radius: 0.375rem;
+            border: 1px solid #d1d5db;
+            padding: 0.5rem 0.75rem;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+        .input-field:focus {
+            outline: 2px solid transparent;
+            outline-offset: 2px;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px #a5b4fc;
+        }
+        .info-box {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border-radius: 0.375rem;
+        }
+        .day-block {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+            position: relative;
+        }
+        .remove-day-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background-color: #fee2e2;
+            color: #b91c1c;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .remove-day-btn:hover {
+            background-color: #fecaca;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 p-4 sm:p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <div class="bg-white p-8 rounded-2xl shadow-lg">
+            <h1 class="text-3xl font-bold text-gray-900">Smart Schedule Converter</h1>
+            <p class="mt-2 text-gray-600">A utility to convert complex schedule formats into a usable CSV, one day at a time.</p>
+        </div>
+
+        <div class="bg-white p-8 rounded-2xl shadow-lg mt-8">
+            <h2 class="text-xl font-bold text-gray-900">Step 1: Select Time Zones</h2>
+             <div class="mt-4">
+                <label for="primary-timezone" class="input-label">Primary Time Zone of Pasted Data</label>
+                <select id="primary-timezone" class="input-field mt-1"></select>
+            </div>
+             <div id="timezone-checkboxes" class="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">
+                <!-- Checkboxes will be dynamically generated here -->
+            </div>
+        </div>
+
+        <div class="bg-white p-8 rounded-2xl shadow-lg mt-8">
+            <h2 class="text-xl font-bold text-gray-900">Step 2: Enter Daily Schedules</h2>
+            <div id="days-container">
+                <!-- Day blocks will be added here -->
+            </div>
+            <button id="add-day-btn" class="mt-4 w-full bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors">Add Another Day</button>
+        </div>
+
+        <div class="bg-white p-8 rounded-2xl shadow-lg mt-8">
+            <h2 class="text-xl font-bold text-gray-900">Step 3: Generate and Copy CSV</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button id="generate-btn" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors">Generate CSV</button>
+                <button id="copy-btn" class="w-full bg-gray-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-600 transition-colors">Copy to Clipboard</button>
+            </div>
+            <div class="info-box mt-6">
+                <p class="text-sm text-blue-800">Copy the output below and save it as a file named <code class="font-mono bg-blue-200 p-1 rounded">schedule.csv</code> in your Bookdown project directory.</p>
+            </div>
+            <textarea id="output-area" class="input-field w-full h-64 font-mono text-sm" readonly placeholder="Your formatted CSV will appear here..."></textarea>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Data and UI Setup ---
+            const generateBtn = document.getElementById('generate-btn');
+            const copyBtn = document.getElementById('copy-btn');
+            const outputArea = document.getElementById('output-area');
+            const primaryTimezoneSelect = document.getElementById('primary-timezone');
+            const timezoneCheckboxesContainer = document.getElementById('timezone-checkboxes');
+            const daysContainer = document.getElementById('days-container');
+            const addDayBtn = document.getElementById('add-day-btn');
+
+            const timezones = [
+                { name: "Pacific Time (PT)", abbr: "PT", offset: -7 },
+                { name: "Mountain Time (MT)", abbr: "MT", offset: -6 },
+                { name: "Central Time (CT)", abbr: "CT", offset: -5 },
+                { name: "Eastern Time (ET)", abbr: "ET", offset: -4 },
+                { name: "Atlantic Time (AT)", abbr: "AT", offset: -3 },
+                { name: "Newfoundland Time (NT)", abbr: "NT", offset: -2.5 }
+            ];
+
+            // Populate primary timezone dropdown and checkboxes
+            timezones.forEach((tz, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = tz.name;
+                primaryTimezoneSelect.appendChild(option);
+
+                const div = document.createElement('div');
+                div.className = 'flex items-center';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `tz-checkbox-${index}`;
+                checkbox.value = index;
+                checkbox.className = 'h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500';
+                const label = document.createElement('label');
+                label.htmlFor = `tz-checkbox-${index}`;
+                label.textContent = tz.name;
+                label.className = 'ml-2 block text-sm text-gray-900';
+                div.appendChild(checkbox);
+                div.appendChild(label);
+                timezoneCheckboxesContainer.appendChild(div);
+            });
+            primaryTimezoneSelect.value = '3'; // Default to Eastern Time
+
+            const updatePrimaryTzCheckbox = () => {
+                const checkboxes = document.querySelectorAll('#timezone-checkboxes input[type="checkbox"]');
+                checkboxes.forEach(cb => {
+                    cb.disabled = false;
+                    cb.checked = false;
+                });
+                const primaryIndex = primaryTimezoneSelect.value;
+                const primaryCheckbox = document.getElementById(`tz-checkbox-${primaryIndex}`);
+                if (primaryCheckbox) {
+                    primaryCheckbox.checked = true;
+                    primaryCheckbox.disabled = true;
+                }
+            };
+            
+            primaryTimezoneSelect.addEventListener('change', updatePrimaryTzCheckbox);
+            updatePrimaryTzCheckbox();
+
+            let dayCounter = 0;
+            const addDayBlock = () => {
+                dayCounter++;
+                const dayBlock = document.createElement('div');
+                dayBlock.className = 'day-block';
+                
+                const dayLabelInput = document.createElement('input');
+                dayLabelInput.type = 'text';
+                dayLabelInput.className = 'day-label-input input-field mt-1';
+                
+                const dateInput = document.createElement('input');
+                dateInput.type = 'date';
+                dateInput.className = 'date-input input-field mt-1';
+
+                const allDayBlocks = document.querySelectorAll('.day-block');
+                if (allDayBlocks.length > 0) {
+                    const lastDayBlock = allDayBlocks[allDayBlocks.length - 1];
+                    const lastDateInput = lastDayBlock.querySelector('.date-input');
+                    if (lastDateInput && lastDateInput.value) {
+                        const lastDate = new Date(lastDateInput.value + 'T00:00:00');
+                        lastDate.setDate(lastDate.getDate() + 1);
+                        const year = lastDate.getFullYear();
+                        const month = String(lastDate.getMonth() + 1).padStart(2, '0');
+                        const day = String(lastDate.getDate()).padStart(2, '0');
+                        dateInput.value = `${year}-${month}-${day}`;
+                    }
+                }
+                
+                const updateDayLabel = () => {
+                    if (dateInput.value) {
+                        const date = new Date(dateInput.value + 'T00:00:00');
+                        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                        dayLabelInput.value = `${monthNames[date.getMonth()]} ${date.getDate()}`;
+                    } else {
+                        dayLabelInput.value = `Day ${dayCounter}`;
+                    }
+                };
+                
+                dateInput.addEventListener('input', updateDayLabel);
+                updateDayLabel();
+
+                dayBlock.innerHTML = `
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800 day-title">Day ${dayCounter}</h3>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="input-label">Date</label>
+                        </div>
+                        <div>
+                            <label class="input-label">Day Label</label>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <label class="input-label paste-label">Paste Day ${dayCounter} Schedule (Time and Activity columns)</label>
+                        <textarea class="paste-area input-field mt-1 h-40" placeholder="Paste data for this day..."></textarea>
+                    </div>
+                `;
+                
+                const gridDiv = dayBlock.querySelector('.grid');
+                gridDiv.children[0].appendChild(dateInput);
+                gridDiv.children[1].appendChild(dayLabelInput);
+
+                if (dayCounter > 1) {
+                    const removeBtn = document.createElement('button');
+                    removeBtn.textContent = 'Remove';
+                    removeBtn.className = 'remove-day-btn';
+                    removeBtn.addEventListener('click', () => {
+                        dayBlock.remove();
+                        renumberDays();
+                    });
+                    dayBlock.querySelector('.flex').appendChild(removeBtn);
+                }
+
+                daysContainer.appendChild(dayBlock);
+            };
+            
+            const renumberDays = () => {
+                const allDayBlocks = document.querySelectorAll('.day-block');
+                dayCounter = allDayBlocks.length;
+                allDayBlocks.forEach((block, index) => {
+                    const newDayNum = index + 1;
+                    block.querySelector('.day-title').textContent = `Day ${newDayNum}`;
+                    block.querySelector('.paste-label').textContent = `Paste Day ${newDayNum} Schedule (Time and Activity columns)`;
+                    const dayLabelInput = block.querySelector('.day-label-input');
+                    if (!block.querySelector('.date-input').value) {
+                       dayLabelInput.value = `Day ${newDayNum}`;
+                    }
+                });
+            };
+
+            addDayBtn.addEventListener('click', addDayBlock);
+            addDayBlock(); // Add the first day by default
+
+            // --- Main Logic ---
+            generateBtn.addEventListener('click', () => {
+                let allEvents = [];
+                const dayBlocks = document.querySelectorAll('.day-block');
+
+                dayBlocks.forEach(block => {
+                    const dayLabel = block.querySelector('.day-label-input').value;
+                    const date = block.querySelector('.date-input').value;
+                    const pasteData = block.querySelector('.paste-area').value;
+                    
+                    if (!pasteData) return;
+
+                    const lines = pasteData.trim().split('\n');
+                    let rawEvents = [];
+                    let currentEvent = null;
+
+                    lines.forEach(line => {
+                        const parts = line.split('\t');
+                        const timeStr = (parts[0] || '').trim();
+                        const activityStr = (parts.length > 1 ? parts.slice(1).join('\t') : parts[0]).trim();
+                        
+                        if (/\d{1,2}:\d{2}/.test(timeStr)) {
+                            if (currentEvent) rawEvents.push(currentEvent);
+                            currentEvent = { time: timeStr, activity: [activityStr].filter(Boolean) };
+                        } else if (currentEvent) {
+                            currentEvent.activity.push(line.trim());
+                        }
+                    });
+                    if (currentEvent) rawEvents.push(currentEvent);
+                    
+                    const finalEvents = [];
+                    for (let i = 0; i < rawEvents.length; i++) {
+                        const event = rawEvents[i];
+                        const fullActivity = event.activity.join(' ').trim();
+                        
+                        if (!fullActivity && finalEvents.length > 0) {
+                            finalEvents[finalEvents.length - 1].endTime = event.time;
+                        } else {
+                            finalEvents.push({ startTime: event.time, endTime: '', activity: fullActivity });
+                        }
+                    }
+
+                    finalEvents.forEach(e => {
+                        allEvents.push({ ...e, day_label: dayLabel, date: date });
+                    });
+                });
+
+                const primaryTzIndex = primaryTimezoneSelect.value;
+                const primaryTz = timezones[primaryTzIndex];
+
+                const allSelectedTimezones = [primaryTz];
+                const checkboxes = document.querySelectorAll('#timezone-checkboxes input[type="checkbox"]:checked');
+                checkboxes.forEach(cb => {
+                    allSelectedTimezones.push(timezones[cb.value]);
+                });
+                
+                const uniqueTimezones = [...new Map(allSelectedTimezones.map(item => [item.abbr, item])).values()];
+                uniqueTimezones.sort((a, b) => a.offset - b.offset);
+
+                const processedEvents = allEvents.map(e => {
+                    let type = 'activity';
+                    const lowerActivity = e.activity.toLowerCase();
+                    if (lowerActivity.includes('break') || lowerActivity.includes('lunch')) type = 'break';
+                    else if (lowerActivity.includes('arrival') || lowerActivity.includes('welcome') || lowerActivity.includes('end of day') || lowerActivity.includes('social')) type = 'other';
+
+                    const pEvent = {
+                        day_label: e.day_label,
+                        date: e.date,
+                        activity: e.activity,
+                        type: type,
+                        times: []
+                    };
+                    
+                    uniqueTimezones.forEach(tz => {
+                        const offsetFromPrimary = tz.offset - primaryTz.offset;
+                        const newStartTime = convertTime(e.startTime, offsetFromPrimary);
+                        const newEndTime = e.endTime ? convertTime(e.endTime, offsetFromPrimary) : '';
+                        const newTimeDisplay = newEndTime ? `${newStartTime} - ${newEndTime}` : newStartTime;
+                        pEvent.times.push({ header: `Time (${tz.abbr})`, time: newTimeDisplay });
+                    });
+
+                    return pEvent;
+                });
+
+                let csvHeader = "day_label,date,activity,type";
+                if (processedEvents.length > 0) {
+                    processedEvents[0].times.forEach((t, index) => {
+                        csvHeader += `,time_${index + 1},timezone_${index + 1}_label`;
+                    });
+                }
+
+                const csvRows = processedEvents.map(e => {
+                    const safeActivity = e.activity.includes(',') ? `"${e.activity.replace(/"/g, '""')}"` : e.activity;
+                    let row = `${e.day_label},${e.date},${safeActivity},${e.type}`;
+                    e.times.forEach(t => {
+                        row += `,${t.time},"${t.header}"`;
+                    });
+                    return row;
+                });
+                
+                outputArea.value = `${csvHeader}\n${csvRows.join('\n')}`;
+                
+                copyBtn.classList.remove('bg-gray-500', 'hover:bg-gray-600');
+                copyBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+            });
+
+            copyBtn.addEventListener('click', () => {
+                if (!outputArea.value) return;
+                outputArea.select();
+                document.execCommand('copy');
+                
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = 'Copied!';
+                setTimeout(() => { copyBtn.textContent = originalText; }, 2000);
+            });
+
+            function convertTime(timeStr, offset) {
+                if (!timeStr || !timeStr.includes(':')) return '';
+                const [h, m] = timeStr.split(':').map(Number);
+                if (isNaN(h) || isNaN(m)) return '';
+                
+                const totalMinutes = h * 60 + m + offset * 60;
+                const newHours = Math.floor(totalMinutes / 60 + 24) % 24;
+                const newMinutes = totalMinutes % 60;
+
+                return `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
+            }
+        });
+    </script>
+</body>
+</html>
