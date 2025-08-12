@@ -312,7 +312,7 @@
                 const processedEvents = allEvents.map(e => {
                     let type = 'activity';
                     const lowerActivity = e.activity.toLowerCase();
-                    if (lowerActivity.includes('break') || lowerActivity.includes('finished') || lowerActivity.includes('lunch') || lowerActivity.includes('pause') || lowerActivity.includes('arrival') || lowerActivity.includes('bienvenue') || lowerActivity.trim() === 'fin' || lowerActivity.includes('welcome') || lowerActivity.includes('end of day')) type = 'break';
+                    if (lowerActivity.includes('break') || lowerActivity.includes('finished') || lowerActivity.includes('lunch') || lowerActivity.includes('pause') || lowerActivity.includes('arrival') || lowerActivity.trim() === 'fin' || lowerActivity.includes('doors open') || lowerActivity.includes('end of day')) type = 'break';
                     else if (lowerActivity.includes('social')) type = 'other';
 
                     const pEvent = {
