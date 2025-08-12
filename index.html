@@ -313,7 +313,7 @@
                     let type = 'activity';
                     const lowerActivity = e.activity.toLowerCase();
                     if (lowerActivity.includes('break') || lowerActivity.includes('lunch') || lowerActivity.includes('pause')) type = 'break';
-                    else if (lowerActivity.includes('arrival') || lowerActivity.includes('welcome') || lowerActivity.includes('end of day') || lowerActivity.includes('social')) type = 'other';
+                    else if (lowerActivity.includes('arrival') || lowerActivity.includes('bienvenue') || lowerActivity.trim() === 'fin') || lowerActivity.includes('welcome') || lowerActivity.includes('end of day') || lowerActivity.includes('social')) type = 'other';
 
                     const pEvent = {
                         day_label: e.day_label,
